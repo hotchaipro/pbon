@@ -1,4 +1,4 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+﻿<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html>
 
 <head>
@@ -21,18 +21,21 @@ inspired by JSON (<a href="http://json.org">http://json.org/</a>).</p>
 <p>PBON is built on the same structures as JSON, namely:</p>
 
 <ul>
-<li>A collection of key/value pairs (realized as an object in some programming languages)</li>
-<li>An ordered list of values (realized as an array in some programming languages)</li>
+<li>A collection of key/value pairs (realized as an <em>object</em> in some programming languages)</li>
+<li>An ordered list of values (realized as an <em>array</em> in some programming languages)</li>
 </ul>
 
 <p>The primary difference between JSON and PBON is that PBON is a more compact format that allows binary 
 data (including <a href="http://en.wikipedia.org/wiki/Unicode">Unicode</a> strings) to be represented 
-directly in the encoding (without <a href="http://en.wikipedia.org/wiki/Escape_character">escaping</a>).</p>
+directly in the encoding without <a href="http://en.wikipedia.org/wiki/Escape_character">escaping</a>.</p>
 
 <p>The trade-off is that PBON loses some human-readability to achieve this compactness.</p>
 
 <p>PBON prefers the simplicity of JSON over implementing the most compact binary representation possible, 
 in order to maintain some human-readability and to make implementation straightforward.</p>
+
+<p>PBON supports backward compatibility by enabling implementations to skip values with unrecognized keys, 
+for example, key/value pairs added as part of a newer version of an object.</p>
 
 <p>In PBON, an <em>object</em> is an unordered set of key/value pairs. An object begins with a 
 left brace { and ends with a right brace }.</p>
@@ -41,12 +44,12 @@ left brace { and ends with a right brace }.</p>
 
 <p>A <em>key</em> is a positive integer encoded as a variable-length integer.</p>
 
-<p>A <em>variable-length integer</em> is a base-128 encoded integer in 
+<!--<p>A <em>variable-length integer</em> is a base-128 encoded integer in 
 <a href="http://en.wikipedia.org/wiki/Endianness">big-endian</a> octet order,
 with a continuation bit set in the most significant (7th) bit for all but the last octet (see 
 <a href="http://en.wikipedia.org/wiki/Variable-length_quantity">variable-length quantity</a> 
 for an example). Negative values are stored as the one's-complement of the value with the 
-sign in the 2nd most significant (6th) binary digit of the first octet.</p>
+sign in the 2nd most significant (6th) binary digit of the first octet.</p>-->
 
 <p>An <em>array</em> is an ordered collection of values. An array begins with a 
 left bracket [ and ends with a right  bracket ].</p>
@@ -64,13 +67,155 @@ true (t) or false (f) or null (~).</p>
 
 <p>A <em>string</em> is a length-prefixed sequence of <a href="http://www.utf-8.com/">UTF-8</a> encoded characters.</p>
 
-<p>An <em>integer</em> is a length-prefixed base-256 encoded value in big-endian order.
-Signed integers store the sign in the most significant bit (see 
-<a href="http://en.wikipedia.org/wiki/Signed_number_representations#Signed_magnitude_representation">Signed magnitude representation</a>).</p>
+<p>An <em>integer</em> is a length-prefixed base-256 encoded value in <a href="http://en.wikipedia.org/wiki/Endianness">big-endian</a> 
+order.</p>
+
+<p>Negative integers are stored using the bitwise complement of the value with the most significant bit (the sign bit) set to 1.</p>
 
 <p>A <em>float</em> is a length-prefixed <a href="http://en.wikipedia.org/wiki/IEEE_754-2008">IEEE 754</a> encoded 
 floating point value in <a href="http://en.wikipedia.org/wiki/Endianness">big-endian</a> order.</p>
 
+<h2>Variable-length integer</h2>
+
+<p>A <em>variable-length integer</em> is stored as an initial byte followed by one or more trailing bytes.</p>
+
+<p>The most-significant bit of each byte (C) is a continuation indicator, which is set for all but the last byte.</p>
+
+<p>The second most-significant bit of the first byte (S) is reserved as the sign indicator, which is set for negative values.</p>
+
+<!-- <p><em>Note that this makes it possible to determine the sign of a variable-length value by checking only the first byte of the value,
+which can be helpful when reading from a stream.</em></p>-->
+
+<p>The remaining bits (Vn) contain the value in big-endian byte order (most significant digits first).</p>
+
+<div class="figure"><img src="/images/varint.png" alt="" /></div>
+
+<p>Negative values are transformed using a bitwise complement operation before encoding.</p>
+
+<p><em>Note that this ensures that small negative numbers will also occupy a small amount of encoded space.</em></p>
+
+<p>For example, here's the value 1. It's a single byte so the continuation bit is not set, 
+and it's a positive value so the sign bit is not set:</p>
+
+<pre>
+<span style="color:red;font-weight:bold;">00</span>00 0001
+</pre>
+
+<p>And here's the value 300:</p>
+
+<pre>
+1000 0010 0010 1100
+</pre>
+
+<p>To calculate this value, start with the binary encoding of 300 and split it into 7-bit groups 
+starting from the least-significant digit:</p>
+
+<pre>
+300 → 10 0101100
+</pre>
+
+<p>And finally, set the MSB of each byte except the last to 0:</p>
+<pre>
+→ <span style="color:red;font-weight:bold;">1</span>0000010 <span style="color:red;font-weight:bold;">0</span>0101100
+</pre>
+
+<p>Here's the value -300:</p>
+
+<pre>
+1100 0010 0010 1011
+</pre>
+
+<p>To encode a negative number, start with the binary encoding of the value, take the bitwise complement,
+and split it into 7-bit groups starting from the least-significant digit.</p>
+
+<pre>
+-300 → 1111 1110 1101 0100
+~(-300) → 1 0010 1011
+→ 10 0101011
+</pre>
+
+<p>And finally, set the MSB of each byte except the last to 0, and the sign bit of the first byte to 1:</p>
+
+<pre>
+→ <span style="color:red;font-weight:bold;">11</span>000010 <span style="color:red;font-weight:bold;">0</span>0101011
+</pre>
+
+<h2>A complete example</h2>
+
+<p>Let's start with the following simple message:</p>
+
+<pre>
+class Message1
+{
+    string Name = "Foo";
+}
+</pre>
+
+<p>This message would be encoded as the following bytes:</p>
+
+<pre>
+7B 01 03 46 6F 6F 7D
+</pre>
+
+<p>Let's break this down.</p>
+
+<p>The first and last bytes (7B ... 7D) are the braces { } that surround every object.</p>
+
+<p>The second byte (01) is the first member key (1) encoded as a variable-length integer.</p>
+
+<p>The third byte (03) is the length of the string member value to follow (3 bytes), also encoded as a variable-length integer.</p>
+
+<p>And finally, bytes 4-6 are the UTF-8 encoded bytes of the string (46 6F 6F).</p>
+
+<p>Now let's add a second member with an integer value:</p>
+
+<pre>
+class Message2
+{
+    string Name = "Foo";
+    int Score = 100;
+}
+</pre>
+
+<p>This message would be encoded as the following bytes:</p>
+
+<pre>
+7B 01 03 46 6F 6F <span style="color:red;font-weight:bold;">02 01 64</span> 7D
+</pre>
+
+<p>The 7th byte (02) is the new member key (2) encoded as a variable-length integer.</p>
+
+<p>The 8th byte (01) is the length of the integer member value to follow (1 byte), also encoded as a variable-length integer.</p>
+
+<p>And finally, the 9th byte (64) is the base-256 encoded value 100.</p>
+
+<p>Now let's say that we want an array of scores:</p>
+
+<pre>
+class Message3
+{
+    string Name = "Foo";
+    int[] Scores = new int[] { 1, 2, 3 };
+}
+</pre>
+
+<p>This message would be encoded as the following bytes:</p>
+
+<pre>
+7B 01 03 46 6F 6F <span style="color:red;font-weight:bold;">03 5B 01 01 01 02 01 03 5D</span> 7D
+</pre>
+
+<p>The 7th byte (03) is the new member key (3) encoded as a variable-length integer.</p>
+
+<p><em>Note that we chose 3 as the member key so as not to conflict with the definition of 
+the previous Message2 class and possibly break backward compatibility.</em></p>
+
+<p>The 9th and 16th bytes (5B ... 5D) are the brackets [ ] that surround every array.</p>
+
+<p>Bytes 10-15 are the values in the array, each of which is the length of the encoded value 
+(encoded as a variable-length integer) followed by the integer value (encoded as base 256).</p>
+
+<h2>ABNF</h2>
 <pre>
 object = "{" members "}" / "{}" / null
 members = pair / pair members
@@ -88,7 +233,7 @@ float = length ieee-754 ; big endian
 true = "t"
 false = "f"
 null = "~"
-varint = base-128 ; Big-endian variable-length quantity, continuation bit in MSB of each octet, sign in bit 6 of first octet
+varint = variable-length-integer ; Big-endian variable-length quantity, continuation bit in MSB of each octet, sign in bit 6 of first octet
 </pre>
 
 <h2>Implementations</h2>
