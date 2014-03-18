@@ -9,6 +9,11 @@ div.figure {
 font-size: x-large;
 font-weight: bold;
 }
+    pre {
+        background: #faf8f0;
+        padding: 0.5em 1em;
+        border: 1px solid #bebab0;
+    }
 </style>
 </head>
 
@@ -16,7 +21,7 @@ font-weight: bold;
 <h1>Introducing PBON</h1>
 
 <p>PBON (Portable Binary Object Notation) is a light-weight binary data interchange format 
-inspired by JSON (<a href="http://json.org">http://json.org/</a>).</p>
+inspired by <a href="http://json.org">JSON</a>.</p>
 
 <p>PBON is built on the same structures as JSON, namely:</p>
 
@@ -27,9 +32,8 @@ inspired by JSON (<a href="http://json.org">http://json.org/</a>).</p>
 
 <p>The primary difference between JSON and PBON is that PBON is a more compact format that allows binary 
 data (including <a href="http://en.wikipedia.org/wiki/Unicode">Unicode</a> strings) to be represented 
-directly in the encoding without <a href="http://en.wikipedia.org/wiki/Escape_character">escaping</a>.</p>
-
-<p>The trade-off is that PBON loses some human-readability to achieve this compactness.</p>
+directly in the encoding without <a href="http://en.wikipedia.org/wiki/Escape_character">escaping</a>.
+The trade-off is that PBON loses some human-readability to achieve this compactness.</p>
 
 <p>PBON prefers the simplicity of JSON over implementing the most compact binary representation possible, 
 in order to maintain some human-readability and to make implementation straightforward.</p>
@@ -61,16 +65,15 @@ true (t) or false (f) or null (~).</p>
 
 <div class="figure"><div>value</div><img src="/images/value.png" alt="" /></div>
 
-<p><em>Binary</em> is a length-prefixed sequence of octets.</p>
+<p>A <em>binary</em> value is a length-prefixed sequence of bytes.</p>
 
 <p>A <em>length-prefix</em> is a non-negative integer value, encoded as variable-length integer.</p>
 
 <p>A <em>string</em> is a length-prefixed sequence of <a href="http://www.utf-8.com/">UTF-8</a> encoded characters.</p>
 
 <p>An <em>integer</em> is a length-prefixed base-256 encoded value in <a href="http://en.wikipedia.org/wiki/Endianness">big-endian</a> 
-order.</p>
-
-<p>Negative integers are stored using the bitwise complement of the value with the most significant bit (the sign bit) set to 1.</p>
+order. Negative integer values are stored using the bitwise complement of the negative value with the most significant bit 
+(the sign bit) set to 1.</p>
 
 <p>A <em>float</em> is a length-prefixed <a href="http://en.wikipedia.org/wiki/IEEE_754-2008">IEEE 754</a> encoded 
 floating point value in <a href="http://en.wikipedia.org/wiki/Endianness">big-endian</a> order.</p>
@@ -79,9 +82,9 @@ floating point value in <a href="http://en.wikipedia.org/wiki/Endianness">big-en
 
 <p>A <em>variable-length integer</em> is stored as an initial byte followed by one or more trailing bytes.</p>
 
-<p>The most-significant bit of each byte (C) is a continuation indicator, which is set for all but the last byte.</p>
+<p>The most-significant bit of each byte (C) is a continuation indicator, which is set to 1 for all but the last byte.</p>
 
-<p>The second most-significant bit of the first byte (S) is reserved as the sign indicator, which is set for negative values.</p>
+<p>The second most-significant bit of the first byte (S) is reserved as the sign indicator, which is set to 1 for negative values.</p>
 
 <!-- <p><em>Note that this makes it possible to determine the sign of a variable-length value by checking only the first byte of the value,
 which can be helpful when reading from a stream.</em></p>-->
@@ -90,12 +93,11 @@ which can be helpful when reading from a stream.</em></p>-->
 
 <div class="figure"><img src="/images/varint.png" alt="" /></div>
 
-<p>Negative values are transformed using a bitwise complement operation before encoding.</p>
+<p>Negative values are transformed using a bitwise complement operation before encoding.
+This ensures that small negative numbers will also occupy a small amount of encoded space.</p>
 
-<p><em>Note that this ensures that small negative numbers will also occupy a small amount of encoded space.</em></p>
-
-<p>For example, here's the value 1. It's a single byte so the continuation bit is not set, 
-and it's a positive value so the sign bit is not set:</p>
+<p>For example, here's the value 1. It's a single byte so the continuation bit (C) is not set, 
+and it's a positive value so the sign bit (S) is not set:</p>
 
 <pre>
 <span style="color:red;font-weight:bold;">00</span>00 0001
@@ -114,9 +116,10 @@ starting from the least-significant digit:</p>
 300 → 10 0101100
 </pre>
 
-<p>And finally, set the MSB of each byte except the last to 0:</p>
+<p>And finally, set the sign bit (S) to 0 to indicate a positive value and the continuation bit of each byte (C) except the last to 1:</p>
+
 <pre>
-→ <span style="color:red;font-weight:bold;">1</span>0000010 <span style="color:red;font-weight:bold;">0</span>0101100
+→ <span style="color:red;font-weight:bold;">10</span>000010 <span style="color:red;font-weight:bold;">0</span>0101100
 </pre>
 
 <p>Here's the value -300:</p>
@@ -126,15 +129,15 @@ starting from the least-significant digit:</p>
 </pre>
 
 <p>To encode a negative number, start with the binary encoding of the value, take the bitwise complement,
-and split it into 7-bit groups starting from the least-significant digit.</p>
+and split it into 7-bit groups starting from the least-significant digit:</p>
 
 <pre>
--300 → 1111 1110 1101 0100
-~(-300) → 1 0010 1011
-→ 10 0101011
+   -300 → 1111 1110 1101 0100
+~(-300) →         1 0010 1011
+        →          10 0101011
 </pre>
 
-<p>And finally, set the MSB of each byte except the last to 0, and the sign bit of the first byte to 1:</p>
+<p>And finally, set the sign bit (S) to 1 to indicate a negative value and the continuation bit of each byte (C) except the last to 1:</p>
 
 <pre>
 → <span style="color:red;font-weight:bold;">11</span>000010 <span style="color:red;font-weight:bold;">0</span>0101011
@@ -157,7 +160,7 @@ class Message1
 7B 01 03 46 6F 6F 7D
 </pre>
 
-<p>Let's break this down.</p>
+<p>Let's break this down:</p>
 
 <p>The first and last bytes (7B ... 7D) are the braces { } that surround every object.</p>
 
@@ -177,10 +180,10 @@ class Message2
 }
 </pre>
 
-<p>This message would be encoded as the following bytes:</p>
+<p>This message could be encoded as the following bytes:</p>
 
 <pre>
-7B 01 03 46 6F 6F <span style="color:red;font-weight:bold;">02 01 64</span> 7D
+7B 01 03 46 6F 6F <span style="color:red;font-weight:bold;">02 <span style="color:blue;font-weight:bold;">01 64</span></span> 7D
 </pre>
 
 <p>The 7th byte (02) is the new member key (2) encoded as a variable-length integer.</p>
@@ -199,10 +202,10 @@ class Message3
 }
 </pre>
 
-<p>This message would be encoded as the following bytes:</p>
+<p>This message could be encoded as the following bytes:</p>
 
 <pre>
-7B 01 03 46 6F 6F <span style="color:red;font-weight:bold;">03 5B 01 01 01 02 01 03 5D</span> 7D
+7B 01 03 46 6F 6F <span style="color:red;font-weight:bold;">03 5B <span style="color:blue;font-weight:bold;">01 01 01 02 01 03</span> 5D</span> 7D
 </pre>
 
 <p>The 7th byte (03) is the new member key (3) encoded as a variable-length integer.</p>
@@ -220,7 +223,7 @@ the previous Message2 class and possibly break backward compatibility.</em></p>
 object = "{" members "}" / "{}" / null
 members = pair / pair members
 pair = key value
-key = varint ; < 0
+key = varint ; > 0
 array = "[" elements "]" / "[]" / null
 elements = value / value elements
 value = binary / string / integer / float / object / array / true / false / null
