@@ -1,5 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html>
+
+<head>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+<title>Introducing PBON</title>
+<style>
+div.figure {
+font-size: x-large;
+font-weight: bold;
+}
+</style>
+</head>
+
 <body>
 <h1>Introducing PBON</h1>
+
+<p>PBON (Portable Binary Object Notation) is a light-weight binary data interchange format 
+inspired by JSON (<a href="http://json.org">http://json.org/</a>).</p>
+
+<p>PBON is built on the same structures as JSON, namely:</p>
+
+<ul>
+<li>A collection of key/value pairs (realized as an object in some programming languages)</li>
+<li>An ordered list of values (realized as an array in some programming languages)</li>
+</ul>
+
+<p>The primary difference between JSON and PBON is that PBON is a more compact format that allows binary 
+data (including <a href="http://en.wikipedia.org/wiki/Unicode/">Unicode</a> strings) to be represented 
+directly in the encoding (without <a href="http://en.wikipedia.org/wiki/Escape_character/">escaping</a>).</p>
+
+<p>The trade-off is that PBON loses some human-readability to achieve this compactness.</p>
+
+<p>PBON prefers the simplicity of JSON over implementing the most compact binary representation possible, 
+in order to maintain some human-readability and to make implementation straightforward.</p>
+
+<p>In PBON, an <em>object</em> is an unordered set of key/value pairs. An object begins with a 
+left brace { and ends with a right brace }.</p>
+
+<div class="figure"><div>object</div><img src="/images/object.png" alt="" /></div>
+
+<p>A <em>key</em> is a positive integer encoded as a variable-length integer.</p>
+
+<p>A <em>variable-length integer</em> is a base-128 encoded integer in 
+<a href="http://en.wikipedia.org/wiki/Endianness/">big-endian</a> octet order,
+with a continuation bit set in the most significant (7th) bit for all but the last octet (see 
+<a href="http://en.wikipedia.org/wiki/Variable-length_quantity">variable-length quantity</a> 
+for an example). Negative values are stored as the one's-complement of the value with the 
+sign in the 2nd most significant (6th) binary digit of the first octet.</p>
+
+<p>An <em>array</em> is an ordered collection of values. An array begins with a 
+left bracket [ and ends with a right  bracket ].</p>
+
+<div class="figure"><div>array</div><img src="/images/array.png" alt="" /></div>
+
+<p>A <em>value</em> can be binary, a string, an integer, a float, an object, an array, 
+true (t) or false (f) or null (~).</p>
+
+<div class="figure"><div>value</div><img src="/images/value.png" alt="" /></div>
+
+<p><em>Binary</em> is a length-prefixed sequence of octets.</p>
+
+<p>A <em>length-prefix</em> is a non-negative integer value, encoded as variable-length integer.</p>
+
+<p>A <em>string</em> is a length-prefixed sequence of <a href="http://www.utf-8.com/">UTF-8</a> encoded characters.</p>
+
+<p>An <em>integer</em> is a length-prefixed base-256 encoded value in big-endian order.
+Signed integers store the sign in the most significant bit (see 
+<a href="http://en.wikipedia.org/wiki/Signed_number_representations#Signed_magnitude_representation">Signed magnitude representation</a>).</p>
+
+<p>A <em>float</em> is a length-prefixed <a href="http://en.wikipedia.org/wiki/IEEE_754-2008">IEEE 754</a> encoded 
+floating point value in <a href="http://en.wikipedia.org/wiki/Endianness/">big-endian</a> order.</p>
+
+<pre>
+object = "{" members "}" / "{}" / null
+members = pair / pair members
+pair = key value
+key = varint ; < 0
+array = "[" elements "]" / "[]" / null
+elements = value / value elements
+value = binary / string / integer / float / object / array / true / false / null
+-----
+binary = length octets
+length = varint ; >= 0
+string = length utf-8 ; length is utf-8 octet count
+integer = length base-256 ; big endian
+float = length ieee-754 ; big endian
+true = "t"
+false = "f"
+null = "~"
+varint = base-128 ; Big-endian variable-length quantity, continuation bit in MSB of each octet, sign in bit 6 of first octet
+</pre>
+
+<h2>Implementations</h2>
+<ul>
+<li><a href="https://github.com/hotchai/serialize.net">Serialize.NET (C#)</a></li>
+</ul>
 </body>
 </html>
